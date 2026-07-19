@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Theme variables – mapped to Tailwind v4 theme tokens                */
+/* ------------------------------------------------------------------ */
+
+@theme {
+  --color-primary: #6246ea;
+  --color-primary-light: #7c6ff7;
+  --color-primary-dark: #4b2ec4;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f4f4f5;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark mode overrides                                                 */
+/* ------------------------------------------------------------------ */
+
+.dark {
+  --color-primary: #7c6ff7;
+  --color-primary-light: #9b8ffc;
+  --color-primary-dark: #5a47d7;
+  --color-surface: #18181b;
+  --color-surface-alt: #27272a;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #60a5fa;
+}
+
+/* ------------------------------------------------------------------ */
+/* Smooth theme transitions                                            */
+/* ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+    color 0.15s ease;
+}
+
+/* ------------------------------------------------------------------ */
+/* Scrollbar styling                                                   */
+/* ------------------------------------------------------------------ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 70%);
+  border-radius: 3px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 35%);
+}
+
+/* ------------------------------------------------------------------ */
+/* Utility animations                                                  */
+/* ------------------------------------------------------------------ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(98, 70, 234, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(98, 70, 234, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out;
+}
+.animate-slide-in {
+  animation: slide-in-right 0.3s ease-out;
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------------ */
+/* Drag & drop highlight                                                */
+/* ------------------------------------------------------------------ */
+
+.drop-zone-active {
+  border-color: var(--color-primary) !important;
+  background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
