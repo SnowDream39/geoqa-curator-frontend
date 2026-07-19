@@ -24,15 +24,10 @@ function formatDate(iso: string) {
 }
 
 function progressPct(run: RunStat): number | null {
-  if (run.status !== "running") return null;
-  const total = run.qa_count;
-  const done =
-    (run.keep_count ?? 0) +
-    (run.minor_revision_count ?? 0) +
-    (run.major_revision_count ?? 0) +
-    (run.reject_count ?? 0) +
-    (run.error_count ?? 0);
-  if (total === 0) return 0;
+  if (run.status !== "running" && run.status !== "queued") return null;
+  const total = run.total;
+  const done = run.completed + run.failed;
+  if (total === 0) return total;
   return Math.min((done / total) * 100, 99);
 }
 
@@ -48,13 +43,12 @@ export function RunCard({ run, onClick }: Props) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5">
             <h3 className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-              {run.name}
+              {run.run_id}
             </h3>
             <StatusBadge status={run.status} />
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            {run.qa_count} 条数据 · 创建于 {formatDate(run.created_at)}
-            {run.finished_at && ` · 完成于 ${formatDate(run.finished_at)}`}
+            {run.total} 条数据{run.created_at && ` · 创建于 ${formatDate(run.created_at)}`}
           </p>
         </div>
 
@@ -83,29 +77,23 @@ export function RunCard({ run, onClick }: Props) {
         </div>
       )}
 
-      {/* Decision summary (only for completed) */}
-      {run.status === "completed" && (
+      {/* Summary stats (only for completed / running) */}
+      {(run.status === "completed" || run.status === "running" || run.status === "queued") &&
+        run.total > 0 && (
         <div className="mt-3 flex gap-2 text-xs">
-          {run.keep_count !== undefined && run.keep_count > 0 && (
+          {run.completed > 0 && (
             <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-              保留 {run.keep_count}
+              完成 {run.completed}
             </span>
           )}
-          {run.minor_revision_count !== undefined &&
-            run.minor_revision_count > 0 && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                小改 {run.minor_revision_count}
-              </span>
-            )}
-          {run.major_revision_count !== undefined &&
-            run.major_revision_count > 0 && (
-              <span className="rounded-full bg-orange-100 px-2.5 py-0.5 font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                大改 {run.major_revision_count}
-              </span>
-            )}
-          {run.reject_count !== undefined && run.reject_count > 0 && (
+          {run.failed > 0 && (
             <span className="rounded-full bg-red-100 px-2.5 py-0.5 font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
-              驳回 {run.reject_count}
+              失败 {run.failed}
+            </span>
+          )}
+          {run.skipped > 0 && (
+            <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+              跳过 {run.skipped}
             </span>
           )}
         </div>

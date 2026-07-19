@@ -31,7 +31,7 @@ export function RunDetail() {
     () => getRunProgress(runId!),
     [runId],
   );
-  const isRunning = true; // Always poll initially; stop on completed/failed
+  const isRunning = true; // Always poll initially; stop on completed/failed/cancelled
   const { data: progress, error: pollError } = usePolling(
     fetcher,
     3_000,
@@ -56,12 +56,15 @@ export function RunDetail() {
   // Derive display data
   const status =
     progress?.status ?? runStat?.status ?? "running";
-  const name = progress?.name ?? runStat?.name ?? runId ?? "";
-  const qaCount = progress?.total ?? runStat?.qa_count ?? 0;
-  const current = progress?.current ?? 0;
+  const displayName = runId ?? "";
+  const qaCount = progress?.total ?? runStat?.total ?? 0;
+  const done = progress?.completed ?? 0;
+  const failed = progress?.failed ?? 0;
+  const skipped = progress?.skipped ?? 0;
   const pct =
-    progress?.percentage ??
-    (qaCount > 0 ? Math.min((current / qaCount) * 100, 99.5) : 0);
+    qaCount > 0
+      ? Math.min(((done + failed) / qaCount) * 100, 99.5)
+      : 0;
 
   const handleDownload = async (type: "export" | "report") => {
     if (!runId) return;
@@ -85,6 +88,9 @@ export function RunDetail() {
     }
   };
 
+  const isTerminal =
+    status === "completed" || status === "failed" || status === "cancelled";
+
   // ------------------------------------------------------------------
   // Render
   // ------------------------------------------------------------------
@@ -99,8 +105,8 @@ export function RunDetail() {
           所有任务
         </Link>
         <span>/</span>
-        <span className="text-zinc-800 dark:text-zinc-200">
-          {name}
+        <span className="text-zinc-800 dark:text-zinc-200 font-mono text-xs">
+          {displayName}
         </span>
       </div>
 
@@ -109,17 +115,18 @@ export function RunDetail() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold tracking-tight truncate">
-                {name}
+              <h1 className="text-xl font-bold tracking-tight truncate font-mono">
+                {displayName}
               </h1>
               <StatusBadge status={status} />
             </div>
-            <p className="mt-1 text-sm text-zinc-500">{runId}</p>
-            {runStat?.created_at && (
+            <p className="mt-1 text-xs text-zinc-500 font-mono">{runId}</p>
+            {progress?.started_at && (
               <p className="text-xs text-zinc-400 mt-0.5">
-                创建于 {formatDate(runStat.created_at)}
-                {runStat.finished_at &&
-                  ` · 完成于 ${formatDate(runStat.finished_at)}`}
+                开始于 {formatDate(progress.started_at)}
+                {progress.updated_at &&
+                  isTerminal &&
+                  ` · 完成于 ${formatDate(progress.updated_at)}`}
               </p>
             )}
           </div>
@@ -130,8 +137,8 @@ export function RunDetail() {
               onClick={() => handleDownload("export")}
               disabled={
                 downloading === "export" ||
-                status === "running" ||
-                status === "failed"
+                status === "queued" ||
+                status === "running"
               }
               className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -141,8 +148,8 @@ export function RunDetail() {
               onClick={() => handleDownload("report")}
               disabled={
                 downloading === "report" ||
-                status === "running" ||
-                status === "failed"
+                status === "queued" ||
+                status === "running"
               }
               className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -164,88 +171,65 @@ export function RunDetail() {
               进度
             </span>
             <span className="font-mono text-zinc-500">
-              {current} / {qaCount} · {pct.toFixed(1)}%
+              {done + failed} / {qaCount} · {pct.toFixed(1)}%
             </span>
           </div>
           <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${
-                status === "completed"
-                  ? "bg-emerald-500"
-                  : status === "failed"
-                    ? "bg-red-500"
-                    : "bg-primary"
-              }`}
-              style={{ width: `${status === "completed" ? 100 : pct}%` }}
-            />
+            {/* Completed (green) + Failed (red) */}
+            <div className="flex h-full transition-all duration-700">
+              <div
+                className="h-full bg-emerald-500 transition-all duration-700"
+                style={{
+                  width: qaCount > 0 ? `${(done / qaCount) * 100}%` : "0%",
+                }}
+              />
+              <div
+                className="h-full bg-red-500 transition-all duration-700"
+                style={{
+                  width:
+                    qaCount > 0 ? `${(failed / qaCount) * 100}%` : "0%",
+                }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Speed info (running) */}
-        {progress?.speed_summary &&
-          status === "running" && (
-            <div className="mt-3 flex gap-4 text-xs text-zinc-500">
-              <span>
-                ≈ {progress.speed_summary.items_per_minute} 条/分钟
-              </span>
-              {progress.speed_summary.estimated_remaining_minutes && (
-                <span>
-                  预计剩余 {progress.speed_summary.estimated_remaining_minutes}{" "}
-                  分钟
-                </span>
-              )}
-            </div>
-          )}
-
-        {/* Recent errors */}
-        {progress?.recent_errors &&
-          progress.recent_errors.length > 0 && (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
-              <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                最近错误
-              </p>
-              <ul className="mt-1 space-y-1">
-                {progress.recent_errors.map((err, i) => (
-                  <li
-                    key={i}
-                    className="text-xs text-amber-700 dark:text-amber-400 font-mono truncate"
-                  >
-                    {err}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        {/* Run-level error */}
+        {progress?.error && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/20">
+            <p className="text-xs font-semibold text-red-800 dark:text-red-300">
+              错误信息
+            </p>
+            <p className="mt-1 text-sm text-red-700 dark:text-red-400 font-mono whitespace-pre-wrap">
+              {progress.error}
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Decision summary (completed) */}
-      {status === "completed" && runStat && (
+      {/* Status summary (completed or running) */}
+      {qaCount > 0 && (
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-4 font-semibold">审核结果分布</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            <DecisionCard
-              label="保留"
-              count={runStat.keep_count ?? 0}
+          <h2 className="mb-4 font-semibold">处理状态</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard
+              label="总计"
+              count={qaCount}
+              color="zinc"
+            />
+            <StatCard
+              label="完成"
+              count={done}
               color="emerald"
             />
-            <DecisionCard
-              label="小修"
-              count={runStat.minor_revision_count ?? 0}
-              color="amber"
-            />
-            <DecisionCard
-              label="大修"
-              count={runStat.major_revision_count ?? 0}
-              color="orange"
-            />
-            <DecisionCard
-              label="驳回"
-              count={runStat.reject_count ?? 0}
+            <StatCard
+              label="失败"
+              count={failed}
               color="red"
             />
-            <DecisionCard
-              label="错误"
-              count={runStat.error_count ?? 0}
+            <StatCard
+              label="跳过"
+              count={skipped}
               color="zinc"
             />
           </div>
@@ -263,10 +247,10 @@ export function RunDetail() {
 }
 
 // ---------------------------------------------------------------------------
-// DecisionCard sub-component
+// StatCard sub-component
 // ---------------------------------------------------------------------------
 
-const DECISION_COLORS: Record<
+const STAT_COLORS: Record<
   string,
   { bg: string; text: string }
 > = {
@@ -292,7 +276,7 @@ const DECISION_COLORS: Record<
   },
 };
 
-function DecisionCard({
+function StatCard({
   label,
   count,
   color,
@@ -301,7 +285,7 @@ function DecisionCard({
   count: number;
   color: string;
 }) {
-  const c = DECISION_COLORS[color] ?? DECISION_COLORS.zinc;
+  const c = STAT_COLORS[color] ?? STAT_COLORS.zinc;
   return (
     <div className={`rounded-xl p-4 ${c.bg}`}>
       <p className={`text-xs font-medium ${c.text}`}>{label}</p>

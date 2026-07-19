@@ -8,6 +8,11 @@ const STATUS_MAP: Record<
   RunStatus,
   { label: string; className: string }
 > = {
+  queued: {
+    label: "排队中",
+    className:
+      "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
+  },
   running: {
     label: "运行中",
     className:

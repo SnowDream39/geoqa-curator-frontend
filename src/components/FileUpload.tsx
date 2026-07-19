@@ -55,9 +55,9 @@ export const FileUpload: FC<Props> = ({
         for (let i = 0; i < lines.length; i++) {
           try {
             const obj = JSON.parse(lines[i]);
-            if (!obj.question || !obj.answer) {
+            if (!obj.instruction || !obj.output) {
               throw new Error(
-                `第 ${i + 1} 行缺少 question 或 answer 字段`,
+                `第 ${i + 1} 行缺少 instruction 或 output 字段`,
               );
             }
             items.push(obj as QAItemPayload);
@@ -215,7 +215,7 @@ export const FileUpload: FC<Props> = ({
               拖放 JSONL 文件到此处，或点击选择
             </p>
             <p className="text-xs text-zinc-400">
-              每行一个 JSON 对象，需包含 question 和 answer 字段
+              每行一个 JSON 对象，需包含 instruction 和 output 字段
             </p>
           </div>
         )}

@@ -223,6 +223,24 @@ export const ConfigPanel: FC<Props> = ({
             </div>
           </div>
 
+          <div>
+            <label className="text-xs font-medium text-zinc-500">
+              Base URL
+            </label>
+            <input
+              type="text"
+              placeholder="API 地址（覆盖默认值）"
+              value={settingsOverride.llm_base_url ?? ""}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settingsOverride,
+                  llm_base_url: e.target.value || undefined,
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-primary dark:border-zinc-600 dark:focus:border-primary-light"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-medium text-zinc-500">

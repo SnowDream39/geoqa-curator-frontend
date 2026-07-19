@@ -1,21 +1,27 @@
 // ---------------------------------------------------------------------------
-// Enums / union types
+// Enums / union types (matching backend Pydantic enums)
 // ---------------------------------------------------------------------------
 
-export type RunStatus = "running" | "completed" | "failed" | "cancelled";
+export type RunStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export type Decision =
   | "keep"
-  | "minor_revision"
-  | "major_revision"
-  | "reject";
+  | "minor_rewrite"
+  | "major_rewrite"
+  | "reject"
+  | "review_manually";
 
-export type EvidenceSufficiency = "sufficient" | "insufficient" | "partial";
+export type EvidenceSufficiency = "sufficient" | "partial" | "insufficient";
 
-export type ClaimStatus = "supported" | "unsupported" | "unverified";
+export type DecisionSource = "model" | "rules" | "model_and_rules";
 
 // ---------------------------------------------------------------------------
-// Review config payloads (sent by the client)
+// Configuration payloads (serializable equivalents of ReviewConfig)
 // ---------------------------------------------------------------------------
 
 export interface RuleConditionPayload {
@@ -26,65 +32,134 @@ export interface RuleConditionPayload {
 export interface DecisionRulePayload {
   name: string;
   priority: number;
-  condition: RuleConditionPayload;
   target_decision: string;
+  condition: RuleConditionPayload;
+  description?: string;
 }
 
 export interface ScoringDimensionPayload {
   key: string;
   label: string;
   weight: number;
+  min_value?: number;
+  max_value?: number;
   description?: string;
+  critical?: boolean;
 }
 
 export interface AnswerStyleConfigPayload {
-  prefer_concise?: boolean;
-  prefer_structured?: boolean;
-  max_answer_length?: number;
+  min_chars?: number;
+  max_chars?: number | null;
+  forbid_page_references?: boolean;
+  forbid_process_language?: boolean;
+  require_evidence_based?: boolean;
+  allow_common_knowledge?: boolean;
+  style_description?: string;
 }
 
 export interface GuardConfigPayload {
-  enable_safety_check?: boolean;
-  enable_relevance_check?: boolean;
-  max_retry_per_item?: number;
+  min_suggested_answer_chars?: number;
+  max_suggested_answer_chars?: number;
+  question_intent_similarity_threshold?: number;
+  enable_entity_check?: boolean;
+  enable_page_ref_check?: boolean;
+  enable_process_language_check?: boolean;
 }
 
 export interface RetryConfigPayload {
   max_retries?: number;
-  retry_delay_seconds?: number;
-  exponential_backoff?: boolean;
+  base_delay_seconds?: number;
+  max_delay_seconds?: number;
 }
 
 export interface ReviewConfigPayload {
   name?: string;
+  description?: string;
   scoring_dimensions?: ScoringDimensionPayload[];
   decision_rules?: DecisionRulePayload[];
+  valid_decisions?: string[];
+  prompt_task_description?: string;
+  prompt_extra_sections?: Record<string, string>;
   answer_style?: AnswerStyleConfigPayload;
   guard?: GuardConfigPayload;
   retry?: RetryConfigPayload;
 }
 
+// ---------------------------------------------------------------------------
+// Settings override
+// ---------------------------------------------------------------------------
+
 export interface SettingsOverride {
-  llm_model?: string;
-  llm_provider?: string;
-  llm_temperature?: number;
-  llm_max_tokens?: number;
-  review_concurrency?: number;
-  data_dir?: string;
+  llm_provider?: string | null;
+  llm_base_url?: string | null;
+  llm_model?: string | null;
+  llm_temperature?: number | null;
+  llm_max_tokens?: number | null;
+  review_concurrency?: number | null;
+  data_dir?: string | null;
 }
 
 // ---------------------------------------------------------------------------
-// QA item (input)
+// QA Item payloads
 // ---------------------------------------------------------------------------
 
 export interface QAItemPayload {
-  id?: string;
-  question: string;
-  answer: string;
-  subject?: string;
-  grade_level?: string;
-  knowledge_points?: string[];
+  qa_id?: string;
+  original_index?: number;
+  instruction: string;
+  output: string;
+  system?: string;
   [key: string]: unknown;
+}
+
+// ---------------------------------------------------------------------------
+// Review results (aligned with ReviewRecord / ReviewScores / LLMReviewOutput)
+// ---------------------------------------------------------------------------
+
+export interface UnsupportedClaim {
+  claim: string;
+  reason?: string;
+}
+
+export interface MissingKeyPoint {
+  point: string;
+  requires_evidence?: boolean;
+}
+
+export interface RedundancyReport {
+  item: string;
+  issue?: string;
+}
+
+export interface ReviewScoresResponse {
+  faithfulness?: number | null;
+  completeness?: number | null;
+  depth_context?: number | null;
+  formatting_norm?: number | null;
+  overall_score?: number | null;
+  [key: string]: unknown;
+}
+
+export interface ReviewSingleResponse {
+  qa_id: string;
+  original_index: number;
+  status: string;
+  decision?: string | null;
+  decision_source?: string | null;
+  model_decision?: string | null;
+  decision_conflict?: string | null;
+  evidence_sufficiency?: string | null;
+  scores: ReviewScoresResponse;
+  unsupported_claims: UnsupportedClaim[];
+  missing_key_points: MissingKeyPoint[];
+  redundancy_or_overlap: RedundancyReport[];
+  diagnosis?: string;
+  suggested_question?: string | null;
+  suggested_answer?: string | null;
+  cited_evidence: string[];
+  rule_flags: string[];
+  guard_result?: Record<string, unknown> | null;
+  error?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,158 +170,91 @@ export interface ReviewSingleRequest {
   qa_item: QAItemPayload;
   config?: ReviewConfigPayload;
   settings_override?: SettingsOverride;
+  include_evidence?: boolean;
 }
 
 export interface StartBatchRequest {
-  name?: string;
   qa_items: QAItemPayload[];
   config?: ReviewConfigPayload;
   settings_override?: SettingsOverride;
-}
-
-// ---------------------------------------------------------------------------
-// Response types – health & settings
-// ---------------------------------------------------------------------------
-
-export interface HealthResponse {
-  status: string;
-  version?: string;
-  data_dir?: string;
-  data_dir_exists?: boolean;
-  configs_loaded?: number;
-}
-
-export interface SettingsInfo {
-  llm_provider: string;
-  llm_model: string;
-  llm_api_base?: string;
-  llm_temperature?: number;
-  llm_max_tokens?: number;
-  data_dir?: string;
-  review_concurrency?: number;
-  max_retry_per_item?: number;
-  [key: string]: unknown;
-}
-
-// ---------------------------------------------------------------------------
-// Response types – review
-// ---------------------------------------------------------------------------
-
-export interface DimensionScore {
-  dimension: string;
-  label: string;
-  score: number;
-  rationale?: string;
-}
-
-export interface ReviewScores {
-  llm_label?: string;
-  overall_score?: number;
-  dimension_scores?: DimensionScore[];
-  evidence_sufficiency?: EvidenceSufficiency;
-  unsupported_claims?: UnsupportedClaim[];
-  missing_key_points?: MissingKeyPoint[];
-  redundancy_report?: RedundancyReport;
-  raw_response?: string;
-}
-
-export interface UnsupportedClaim {
-  claim: string;
-  status: ClaimStatus;
-  evidence_summary?: string;
-}
-
-export interface MissingKeyPoint {
-  point: string;
-  severity?: string;
-}
-
-export interface RedundancyReport {
-  has_redundancy?: boolean;
-  redundant_content?: string;
-}
-
-export interface ErrorDetail {
-  step?: string;
-  message: string;
-  details?: string;
-}
-
-export interface ReviewSingleResponse {
   run_id?: string;
-  status: string;
-  original_qa?: QAItemPayload;
-  review_scores?: ReviewScores;
-  improved_qa?: QAItemPayload;
-  final_decision?: Decision;
-  errors?: ErrorDetail[];
-  token_usage?: TokenUsage;
-}
-
-export interface TokenUsage {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-  cost_usd?: number;
+  dry_run?: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// Response types – batch runs
+// Batch run models
 // ---------------------------------------------------------------------------
 
 export interface BatchRunResponse {
   run_id: string;
-  name: string;
   status: RunStatus;
-  created_at: string;
-  qa_count: number;
-}
-
-export interface SpeedSummary {
-  items_per_minute?: number;
-  estimated_remaining_minutes?: number;
-  avg_seconds_per_item?: number;
+  item_count: number;
+  message?: string;
 }
 
 export interface RunProgress {
   run_id: string;
-  name: string;
   status: RunStatus;
-  progress: string;
-  current?: number;
-  total?: number;
-  percentage?: number;
-  speed_summary?: SpeedSummary;
-  recent_errors?: string[];
+  total: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  started_at?: string | null;
+  updated_at?: string | null;
+  error?: string | null;
 }
 
 export interface RunStat {
   run_id: string;
-  name: string;
   status: RunStatus;
-  qa_count: number;
-  created_at: string;
-  finished_at?: string;
-  keep_count?: number;
-  minor_revision_count?: number;
-  major_revision_count?: number;
-  reject_count?: number;
-  error_count?: number;
+  command?: string | null;
+  total: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  created_at?: string | null;
 }
 
 export interface RunListResponse {
   runs: RunStat[];
+  count: number;
 }
 
 // ---------------------------------------------------------------------------
-// Export / report responses (FileResponse — client receives Blob)
+// Health / Settings
 // ---------------------------------------------------------------------------
 
-export interface ExportSummary {
-  total: number;
-  keep: number;
-  minor_revision: number;
-  major_revision: number;
-  reject: number;
-  error: number;
+export interface HealthResponse {
+  status: string;
+  version: string;
+  llm_provider: string;
+  llm_model?: string | null;
+  data_dir: string;
+  output_root: string;
+  checks: Record<string, string>;
+}
+
+export interface SettingsInfo {
+  llm_provider: string;
+  llm_base_url?: string | null;
+  llm_model?: string | null;
+  llm_temperature: number;
+  llm_max_tokens: number;
+  review_concurrency: number;
+  judge_concurrency: number;
+  data_dir: string;
+  output_root: string;
+  chroma_dir: string;
+  log_dir: string;
+  retrieval_books: string[];
+  token_audit_enabled: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Generic error
+// ---------------------------------------------------------------------------
+
+export interface ErrorDetail {
+  detail: string;
+  code?: string | null;
 }

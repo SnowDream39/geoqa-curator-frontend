@@ -9,8 +9,20 @@ import type {
   QAItemPayload,
   ReviewConfigPayload,
   ReviewSingleResponse,
+  ReviewScoresResponse,
   SettingsOverride,
 } from "../types/api.ts";
+
+// ---------------------------------------------------------------------------
+// Helpers – score dimension labels
+// ---------------------------------------------------------------------------
+
+const SCORE_DIMS: { key: keyof ReviewScoresResponse; label: string }[] = [
+  { key: "faithfulness", label: "忠实度" },
+  { key: "completeness", label: "完整性" },
+  { key: "depth_context", label: "深度/上下文" },
+  { key: "formatting_norm", label: "格式规范" },
+];
 
 // ---------------------------------------------------------------------------
 // Review – single QA review page
@@ -20,8 +32,8 @@ type TabId = "form" | "config";
 
 export function Review() {
   // Form state
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
+  const [instruction, setInstruction] = useState("");
+  const [output, setOutput] = useState("");
   const [subject, setSubject] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
 
@@ -39,17 +51,17 @@ export function Review() {
   );
 
   const handleSubmit = async () => {
-    if (!question.trim() || !answer.trim()) return;
+    if (!instruction.trim() || !output.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
 
     const qa: QAItemPayload = {
-      question: question.trim(),
-      answer: answer.trim(),
-    };
-    if (subject.trim()) qa.subject = subject.trim();
-    if (gradeLevel.trim()) qa.grade_level = gradeLevel.trim();
+      instruction: instruction.trim(),
+      output: output.trim(),
+    } as QAItemPayload;
+    if (subject.trim()) (qa as Record<string, unknown>).subject = subject.trim();
+    if (gradeLevel.trim()) (qa as Record<string, unknown>).grade_level = gradeLevel.trim();
 
     try {
       const res = await reviewSingle({
@@ -73,12 +85,14 @@ export function Review() {
     switch (d) {
       case "keep":
         return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400";
-      case "minor_revision":
+      case "minor_rewrite":
         return "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400";
-      case "major_revision":
+      case "major_rewrite":
         return "bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400";
       case "reject":
         return "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400";
+      case "review_manually":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400";
       default:
         return "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
     }
@@ -88,12 +102,14 @@ export function Review() {
     switch (d) {
       case "keep":
         return "保留";
-      case "minor_revision":
-        return "小修";
-      case "major_revision":
-        return "大修";
+      case "minor_rewrite":
+        return "小改";
+      case "major_rewrite":
+        return "大改";
       case "reject":
         return "驳回";
+      case "review_manually":
+        return "需人工审核";
       default:
         return d ?? "未知";
     }
@@ -143,8 +159,8 @@ export function Review() {
                 </label>
                 <textarea
                   rows={4}
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
                   placeholder="输入地理题目..."
                   className="mt-1.5 w-full rounded-xl border border-zinc-300 bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-primary dark:border-zinc-600 dark:focus:border-primary-light resize-none"
                 />
@@ -156,8 +172,8 @@ export function Review() {
                 </label>
                 <textarea
                   rows={4}
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
+                  value={output}
+                  onChange={(e) => setOutput(e.target.value)}
                   placeholder="输入参考答案..."
                   className="mt-1.5 w-full rounded-xl border border-zinc-300 bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-primary dark:border-zinc-600 dark:focus:border-primary-light resize-none"
                 />
@@ -193,7 +209,7 @@ export function Review() {
               <button
                 onClick={handleSubmit}
                 disabled={
-                  loading || !question.trim() || !answer.trim()
+                  loading || !instruction.trim() || !output.trim()
                 }
                 className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white shadow-sm shadow-primary/25 transition-all hover:bg-primary-dark active:scale-[0.98] disabled:opacity-40"
               >
@@ -252,96 +268,242 @@ export function Review() {
                   <h2 className="font-semibold text-zinc-700 dark:text-zinc-300">
                     审核结论
                   </h2>
-                  {result.final_decision && (
+                  {result.decision && (
                     <span
-                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${decisionColor(result.final_decision)}`}
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${decisionColor(result.decision)}`}
                     >
-                      {decisionLabel(result.final_decision)}
+                      {decisionLabel(result.decision)}
                     </span>
                   )}
                 </div>
 
-                {result.review_scores?.overall_score !==
-                  undefined && (
+                {result.scores?.overall_score !== undefined && (
                   <p className="mt-3 text-3xl font-bold tabular-nums">
-                    {result.review_scores.overall_score.toFixed(1)}
+                    {result.scores.overall_score.toFixed(1)}
                     <span className="text-base font-normal text-zinc-400">
                       {" "}
                       / 5.0
                     </span>
                   </p>
                 )}
+
+                {result.decision_source && (
+                  <p className="mt-2 text-xs text-zinc-400">
+                    判决来源: {result.decision_source}
+                    {result.model_decision && ` · 模型判定: ${result.model_decision}`}
+                    {result.decision_conflict && ` · ${result.decision_conflict}`}
+                  </p>
+                )}
               </div>
 
               {/* Dimension scores */}
-              {result.review_scores?.dimension_scores &&
-                result.review_scores.dimension_scores.length >
-                  0 && (
-                  <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-                    <h2 className="mb-4 font-semibold text-zinc-700 dark:text-zinc-300">
-                      维度评分
-                    </h2>
-                    <div className="space-y-4">
-                      {result.review_scores.dimension_scores.map(
-                        (dim) => (
-                          <ScoreBar
-                            key={dim.dimension}
-                            label={dim.label}
-                            score={dim.score}
-                          />
-                        ),
-                      )}
-                    </div>
-                  </div>
-                )}
+              <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                <h2 className="mb-4 font-semibold text-zinc-700 dark:text-zinc-300">
+                  维度评分
+                </h2>
+                <div className="space-y-4">
+                  {SCORE_DIMS.map((dim) => {
+                    const score = result.scores[dim.key];
+                    if (score === undefined || score === null) return null;
+                    return (
+                      <ScoreBar
+                        key={dim.key}
+                        label={dim.label}
+                        score={score}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
 
-              {/* Evidence */}
-              {result.review_scores?.evidence_sufficiency && (
+              {/* Evidence sufficiency */}
+              {result.evidence_sufficiency && (
                 <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
                   <h2 className="mb-2 font-semibold text-zinc-700 dark:text-zinc-300">
                     证据充分性
                   </h2>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                    {result.review_scores.evidence_sufficiency}
+                    {result.evidence_sufficiency}
                   </p>
                 </div>
               )}
 
-              {/* Token usage */}
-              {result.token_usage && (
+              {/* Unsupported claims */}
+              {result.unsupported_claims.length > 0 && (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <h2 className="mb-3 font-semibold text-zinc-700 dark:text-zinc-300">
+                    无依据的主张
+                  </h2>
+                  <ul className="space-y-2">
+                    {result.unsupported_claims.map((c, i) => (
+                      <li
+                        key={i}
+                        className="rounded-lg bg-red-50 px-3 py-2 text-sm dark:bg-red-950/20"
+                      >
+                        <span className="font-medium text-red-800 dark:text-red-300">
+                          {c.claim}
+                        </span>
+                        {c.reason && (
+                          <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">
+                            {c.reason}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Missing key points */}
+              {result.missing_key_points.length > 0 && (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <h2 className="mb-3 font-semibold text-zinc-700 dark:text-zinc-300">
+                    遗漏要点
+                  </h2>
+                  <ul className="space-y-2">
+                    {result.missing_key_points.map((p, i) => (
+                      <li
+                        key={i}
+                        className="rounded-lg bg-amber-50 px-3 py-2 text-sm dark:bg-amber-950/20"
+                      >
+                        <span className="font-medium text-amber-800 dark:text-amber-300">
+                          {p.point}
+                        </span>
+                        {p.requires_evidence !== undefined && (
+                          <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                            {p.requires_evidence ? "(需要证据)" : "(不需要证据)"}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Redundancy */}
+              {result.redundancy_or_overlap.length > 0 && (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <h2 className="mb-3 font-semibold text-zinc-700 dark:text-zinc-300">
+                    冗余/重叠
+                  </h2>
+                  <ul className="space-y-2">
+                    {result.redundancy_or_overlap.map((r, i) => (
+                      <li
+                        key={i}
+                        className="rounded-lg bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800"
+                      >
+                        <span className="font-medium">{r.item}</span>
+                        {r.issue && (
+                          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                            {r.issue}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Diagnosis */}
+              {result.diagnosis && (
                 <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
                   <h2 className="mb-2 font-semibold text-zinc-700 dark:text-zinc-300">
-                    Token 用量
+                    诊断
                   </h2>
-                  <div className="grid grid-cols-3 gap-3 text-sm">
-                    <div>
-                      <p className="text-zinc-500">Prompt</p>
-                      <p className="font-mono font-semibold">
-                        {result.token_usage.prompt_tokens ??
-                          "-"}
+                  <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
+                    {result.diagnosis}
+                  </p>
+                </div>
+              )}
+
+              {/* Suggested QA */}
+              {(result.suggested_question || result.suggested_answer) && (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <h2 className="mb-3 font-semibold text-zinc-700 dark:text-zinc-300">
+                    优化建议
+                  </h2>
+                  {result.suggested_question && (
+                    <div className="mb-3">
+                      <p className="text-xs font-medium text-zinc-500">
+                        建议问题
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        {result.suggested_question}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-zinc-500">Completion</p>
-                      <p className="font-mono font-semibold">
-                        {result.token_usage.completion_tokens ??
-                          "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-zinc-500">总计</p>
-                      <p className="font-mono font-semibold">
-                        {result.token_usage.total_tokens ?? "-"}
-                      </p>
-                    </div>
-                  </div>
-                  {result.token_usage.cost_usd !==
-                    undefined && (
-                    <p className="mt-2 text-xs text-zinc-400">
-                      估算成本: $
-                      {result.token_usage.cost_usd.toFixed(6)}
-                    </p>
                   )}
+                  {result.suggested_answer && (
+                    <div>
+                      <p className="text-xs font-medium text-zinc-500">
+                        建议答案
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        {result.suggested_answer}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Cited evidence */}
+              {result.cited_evidence.length > 0 && (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <h2 className="mb-3 font-semibold text-zinc-700 dark:text-zinc-300">
+                    引用证据
+                  </h2>
+                  <ul className="list-inside list-disc space-y-1">
+                    {result.cited_evidence.map((e, i) => (
+                      <li
+                        key={i}
+                        className="text-sm text-zinc-600 dark:text-zinc-400"
+                      >
+                        {e}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Rule flags */}
+              {result.rule_flags.length > 0 && (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <h2 className="mb-2 font-semibold text-zinc-700 dark:text-zinc-300">
+                    规则标记
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {result.rule_flags.map((f, i) => (
+                      <span
+                        key={i}
+                        className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                      >
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Guard result */}
+              {result.guard_result && (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <h2 className="mb-2 font-semibold text-zinc-700 dark:text-zinc-300">
+                    Guard 检查
+                  </h2>
+                  <pre className="overflow-auto rounded-lg bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                    {JSON.stringify(result.guard_result, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {/* Backend error */}
+              {result.error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 dark:border-red-800 dark:bg-red-950/20">
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                    执行错误
+                  </p>
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {result.error}
+                  </p>
                 </div>
               )}
             </div>

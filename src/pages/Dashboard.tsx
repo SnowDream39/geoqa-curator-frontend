@@ -83,7 +83,7 @@ export function Dashboard() {
   // ------------------------------------------------------------------
   const stats = {
     total: runs.length,
-    running: runs.filter((r) => r.status === "running").length,
+    running: runs.filter((r) => r.status === "running" || r.status === "queued").length,
     completed: runs.filter((r) => r.status === "completed").length,
     failed: runs.filter((r) => r.status === "failed").length,
   };
@@ -97,8 +97,6 @@ export function Dashboard() {
     setSubmitError(null);
     try {
       const res = await startBatchRun({
-        name:
-          runName.trim() || `batch-${new Date().toISOString().slice(0, 16).replace("T", "-")}`,
         qa_items: qaItems,
         config: Object.keys(config).length > 0 ? config : undefined,
         settings_override:
