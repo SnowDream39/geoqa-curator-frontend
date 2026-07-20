@@ -71,6 +71,7 @@ export function Review() {
           Object.keys(settingsOverride).length > 0
             ? settingsOverride
             : undefined,
+        include_evidence: true,
       });
       setResult(res);
     } catch (err) {
@@ -277,7 +278,7 @@ export function Review() {
                   )}
                 </div>
 
-                {result.scores?.overall_score !== undefined && (
+                {result.scores?.overall_score != null && (
                   <p className="mt-3 text-3xl font-bold tabular-nums">
                     {result.scores.overall_score.toFixed(1)}
                     <span className="text-base font-normal text-zinc-400">
@@ -303,7 +304,10 @@ export function Review() {
                 </h2>
                 <div className="space-y-4">
                   {SCORE_DIMS.map((dim) => {
-                    const score = result.scores[dim.key];
+                    const score = result.scores[dim.key] as
+                      | number
+                      | undefined
+                      | null;
                     if (score === undefined || score === null) return null;
                     return (
                       <ScoreBar
@@ -315,6 +319,77 @@ export function Review() {
                   })}
                 </div>
               </div>
+
+              {/* Retrieved evidence + retrieval audit */}
+              {((result.evidence && result.evidence.length > 0) ||
+                result.retrieval_audit) && (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <h2 className="mb-3 font-semibold text-zinc-700 dark:text-zinc-300">
+                    检索证据
+                  </h2>
+                  {result.retrieval_audit && (
+                    <div className="mb-4 flex flex-wrap gap-3 text-xs">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium ${
+                          result.retrieval_audit.status === "ok"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+                        }`}
+                      >
+                        检索状态: {result.retrieval_audit.status ?? "未知"}
+                      </span>
+                      {result.retrieval_audit.query_count !== undefined && (
+                        <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                          查询数: {result.retrieval_audit.query_count}
+                        </span>
+                      )}
+                      {result.retrieval_audit.evidence_count !== undefined && (
+                        <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                          证据块: {result.retrieval_audit.evidence_count}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {result.evidence && result.evidence.length > 0 ? (
+                    <ul className="space-y-3">
+                      {result.evidence.map((ev, i) => (
+                        <li
+                          key={ev.chunk_id ?? i}
+                          className="rounded-lg bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                              {ev.chunk_id}
+                            </span>
+                            {ev.score !== undefined && (
+                              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                分数 {ev.score.toFixed(3)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                            {ev.text}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-400">
+                            {[
+                              ev.book_title,
+                              ev.page_start !== undefined && ev.page_start !== null
+                                ? `第 ${ev.page_start} 页`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      未检索到证据
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Evidence sufficiency */}
               {result.evidence_sufficiency && (
@@ -451,13 +526,25 @@ export function Review() {
                   <h2 className="mb-3 font-semibold text-zinc-700 dark:text-zinc-300">
                     引用证据
                   </h2>
-                  <ul className="list-inside list-disc space-y-1">
+                  <ul className="space-y-2">
                     {result.cited_evidence.map((e, i) => (
                       <li
-                        key={i}
-                        className="text-sm text-zinc-600 dark:text-zinc-400"
+                        key={e.chunk_id ?? i}
+                        className="rounded-lg bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800"
                       >
-                        {e}
+                        <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                          {e.chunk_id ?? `引用 ${i + 1}`}
+                        </span>
+                        {e.page !== undefined && e.page !== null && (
+                          <span className="ml-2 text-xs text-zinc-500">
+                            (第 {e.page} 页)
+                          </span>
+                        )}
+                        {e.reason && (
+                          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                            {e.reason}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>

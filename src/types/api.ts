@@ -131,6 +131,37 @@ export interface RedundancyReport {
   issue?: string;
 }
 
+/** A retrieved evidence chunk with provenance (from the vector store). */
+export interface EvidenceChunk {
+  chunk_id: string;
+  book_title?: string | null;
+  book_id?: string | null;
+  source_pdf?: string | null;
+  page_start?: number | null;
+  page_end?: number | null;
+  text: string;
+  score: number;
+  distance?: number | null;
+  heading_path?: string | null;
+  retrieval_backend?: string | null;
+  matched_keywords?: string[];
+}
+
+/** Diagnostics about the evidence retrieval step. */
+export interface RetrievalAudit {
+  status?: string;
+  query_count?: number;
+  evidence_count?: number;
+  [key: string]: unknown;
+}
+
+/** Evidence cited by the LLM in its review output. */
+export interface CitedEvidenceItem {
+  page?: number | null;
+  chunk_id?: string | null;
+  reason?: string | null;
+}
+
 export interface ReviewScoresResponse {
   faithfulness?: number | null;
   completeness?: number | null;
@@ -156,7 +187,9 @@ export interface ReviewSingleResponse {
   diagnosis?: string;
   suggested_question?: string | null;
   suggested_answer?: string | null;
-  cited_evidence: string[];
+  cited_evidence: CitedEvidenceItem[];
+  evidence: EvidenceChunk[];
+  retrieval_audit?: RetrievalAudit;
   rule_flags: string[];
   guard_result?: Record<string, unknown> | null;
   error?: string | null;

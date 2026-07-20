@@ -9,7 +9,7 @@ import {
 } from "../api/client.ts";
 import { usePolling } from "../hooks/usePolling.ts";
 import { StatusBadge } from "../components/StatusBadge.tsx";
-import type { RunProgress, RunStat } from "../types/api.ts";
+import type { RunStat } from "../types/api.ts";
 
 // ---------------------------------------------------------------------------
 // RunDetail – live view of a single batch run
