@@ -779,6 +779,26 @@ export const ConfigPanel: FC<Props> = ({
             />
           </div>
 
+          <div>
+            <label className={labelCls}>API Key</label>
+            <input
+              type="password"
+              autoComplete="off"
+              placeholder="留空则使用服务端默认密钥"
+              value={settingsOverride.llm_api_key ?? ""}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settingsOverride,
+                  llm_api_key: e.target.value || undefined,
+                })
+              }
+              className={inputCls}
+            />
+            <p className="mt-1 text-[11px] text-zinc-400">
+              仅用于本次运行（不写入服务端任务清单/日志）；会保存在本浏览器中以便下次自动填充。
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>

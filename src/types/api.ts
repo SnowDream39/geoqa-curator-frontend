@@ -93,6 +93,7 @@ export interface SettingsOverride {
   llm_provider?: string | null;
   llm_base_url?: string | null;
   llm_model?: string | null;
+  llm_api_key?: string | null;
   llm_temperature?: number | null;
   llm_max_tokens?: number | null;
   review_concurrency?: number | null;
@@ -251,6 +252,46 @@ export interface RunStat {
 export interface RunListResponse {
   runs: RunStat[];
   count: number;
+}
+
+// ----- Deep Review -----------------------------------------------------------
+
+export interface DeepReviewRequest {
+  run_id?: string | null;
+  source_run_id: string;
+  risk_score_min?: number;
+  limit?: number | null;
+  ids?: string[] | null;
+  system_decisions?: string[] | null;
+  evidence_sufficiencies?: string[] | null;
+  qa_concurrency?: number;
+  settings_override?: SettingsOverride | null;
+}
+
+export interface DeepReviewResponse {
+  run_id: string;
+  status: RunStatus;
+  item_count: number;
+  message?: string | null;
+}
+
+export interface DeepReviewSummary {
+  selected_count?: number;
+  completed_count?: number;
+  failed_count?: number;
+  qa_concurrency?: number;
+  risk_score_min?: number;
+  status_counts?: Record<string, number>;
+  human_review_queue_count?: number;
+  validation_warning_count?: number;
+  primary_outputs?: Record<string, string>;
+  results_jsonl?: string;
+  [key: string]: unknown;
+}
+
+export interface DeepReviewProgress extends RunProgress {
+  source_run_id?: string | null;
+  summary?: DeepReviewSummary | null;
 }
 
 // ---------------------------------------------------------------------------

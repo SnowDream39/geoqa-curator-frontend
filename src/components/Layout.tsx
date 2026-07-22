@@ -13,11 +13,15 @@ interface Props {
 const NAV_ITEMS = [
   { to: "/", label: "仪表盘", emoji: "🏠" },
   { to: "/review", label: "单条审核", emoji: "🔍" },
+  { to: "/deep-review", label: "深度审核", emoji: "🧠" },
 ];
 
 export const Layout: FC<Props> = ({ children }) => {
   const { resolved, toggle } = useTheme();
   const location = useLocation();
+  const isActive = (to: string) =>
+    location.pathname === to ||
+    (to !== "/" && location.pathname.startsWith(to + "/"));
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -41,7 +45,7 @@ export const Layout: FC<Props> = ({ children }) => {
             {/* Nav */}
             <nav className="ml-2 hidden items-center gap-1 sm:flex">
               {NAV_ITEMS.map((item) => {
-                const active = location.pathname === item.to;
+                const active = isActive(item.to);
                 return (
                   <Link
                     key={item.to}
@@ -104,7 +108,7 @@ export const Layout: FC<Props> = ({ children }) => {
         {/* Mobile nav */}
         <nav className="flex gap-1 px-4 py-2 sm:hidden border-t border-zinc-100 dark:border-zinc-800">
           {NAV_ITEMS.map((item) => {
-            const active = location.pathname === item.to;
+            const active = isActive(item.to);
             return (
               <Link
                 key={item.to}

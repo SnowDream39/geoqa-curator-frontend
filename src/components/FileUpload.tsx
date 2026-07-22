@@ -8,7 +8,7 @@ import {
 import type { QAItemPayload } from "../types/api.ts";
 
 // ---------------------------------------------------------------------------
-// FileUpload – drag & drop JSONL upload with live preview
+// FileUpload – drag & drop JSON upload with live preview
 // ---------------------------------------------------------------------------
 
 interface Props {
@@ -20,7 +20,7 @@ interface Props {
 export const FileUpload: FC<Props> = ({
   onParsed,
   disabled = false,
-  accept = ".jsonl,.json",
+  accept = ".json",
 }) => {
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -40,32 +40,44 @@ export const FileUpload: FC<Props> = ({
 
       try {
         const text = await file.text();
-        const lines = text
-          .split("\n")
-          .map((l) => l.trim())
-          .filter((l) => l.length > 0);
+        let data: unknown;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error(
+            `JSON 解析失败: ${e instanceof Error ? e.message : String(e)}`,
+            { cause: e },
+          );
+        }
 
-        if (lines.length === 0) {
-          setParseError("文件为空");
+        // Accept either a bare array of items or an object with `qa_items`.
+        const rawItems: unknown = Array.isArray(data)
+          ? data
+          : (data as { qa_items?: unknown } | null)?.qa_items;
+
+        if (!Array.isArray(rawItems)) {
+          throw new Error(
+            "文件格式应为 JSON 数组，或包含 qa_items 字段的对象",
+          );
+        }
+        if (rawItems.length === 0) {
+          setParseError("文件中没有 QA 数据");
           setItemCount(null);
           return;
         }
 
         const items: QAItemPayload[] = [];
-        for (let i = 0; i < lines.length; i++) {
-          try {
-            const obj = JSON.parse(lines[i]);
-            if (!obj.instruction || !obj.output) {
-              throw new Error(
-                `第 ${i + 1} 行缺少 instruction 或 output 字段`,
-              );
-            }
-            items.push(obj as QAItemPayload);
-          } catch (e) {
+        for (let i = 0; i < rawItems.length; i++) {
+          const obj = rawItems[i] as Record<string, unknown>;
+          if (!obj || typeof obj !== "object") {
+            throw new Error(`第 ${i + 1} 项不是有效的对象`);
+          }
+          if (!obj.instruction || !obj.output) {
             throw new Error(
-              `第 ${i + 1} 行 JSON 解析失败: ${e instanceof Error ? e.message : String(e)}`,
+              `第 ${i + 1} 项缺少 instruction 或 output 字段`,
             );
           }
+          items.push(obj as QAItemPayload);
         }
 
         setItemCount(items.length);
@@ -212,10 +224,10 @@ export const FileUpload: FC<Props> = ({
               />
             </svg>
             <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-              拖放 JSONL 文件到此处，或点击选择
+              拖放 JSON 文件到此处，或点击选择
             </p>
             <p className="text-xs text-zinc-400">
-              每行一个 JSON 对象，需包含 instruction 和 output 字段
+              支持 JSON 数组，或含 qa_items 字段的对象；需包含 instruction 和 output 字段
             </p>
           </div>
         )}

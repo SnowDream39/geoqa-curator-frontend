@@ -1,6 +1,9 @@
 import axios, { type AxiosError } from "axios";
 import type {
   BatchRunResponse,
+  DeepReviewProgress,
+  DeepReviewRequest,
+  DeepReviewResponse,
   HealthResponse,
   ReviewSingleRequest,
   ReviewSingleResponse,
@@ -102,5 +105,58 @@ export async function downloadRunReport(
   runId: string,
 ): Promise<Blob> {
   const { data } = await apiLong.get(`/runs/${runId}/report`);
+  return data as Blob;
+}
+
+// ---------------------------------------------------------------------------
+// Deep Review
+// ---------------------------------------------------------------------------
+
+/** GET /api/deep-review/source-runs – review runs eligible as sources */
+export async function listDeepReviewSources(): Promise<RunListResponse> {
+  const { data } = await api.get<RunListResponse>("/deep-review/source-runs");
+  return data;
+}
+
+/** POST /api/deep-review – start a batch deep review */
+export async function startDeepReview(
+  payload: DeepReviewRequest,
+): Promise<DeepReviewResponse> {
+  const { data } = await api.post<DeepReviewResponse>("/deep-review", payload);
+  return data;
+}
+
+/** GET /api/deep-review – list deep review runs */
+export async function listDeepReviews(): Promise<RunListResponse> {
+  const { data } = await api.get<RunListResponse>("/deep-review");
+  return data;
+}
+
+/** GET /api/deep-review/{run_id} – poll progress */
+export async function getDeepReview(
+  runId: string,
+): Promise<DeepReviewProgress> {
+  const { data } = await api.get<DeepReviewProgress>(
+    `/deep-review/${runId}`,
+  );
+  return data;
+}
+
+export type DeepReviewArtifact =
+  | "results_jsonl"
+  | "review_queue_md"
+  | "review_queue_xlsx"
+  | "run_report_json"
+  | "batch_results_jsonl"
+  | "batch_summary_json";
+
+/** GET /api/deep-review/{run_id}/download/{artifact} – download an output */
+export async function downloadDeepReview(
+  runId: string,
+  artifact: DeepReviewArtifact,
+): Promise<Blob> {
+  const { data } = await apiLong.get(
+    `/deep-review/${runId}/download/${artifact}`,
+  );
   return data as Blob;
 }

@@ -97,6 +97,7 @@ export function Dashboard() {
     setSubmitError(null);
     try {
       const res = await startBatchRun({
+        run_id: runName || undefined,
         qa_items: qaItems,
         config: Object.keys(config).length > 0 ? config : undefined,
         settings_override:
@@ -213,7 +214,7 @@ export function Dashboard() {
         <EmptyState
           icon="📂"
           title="暂无任务"
-          description="点击「新建任务」上传 JSONL 文件并启动批量审核"
+          description="点击「新建任务」上传 JSON 文件并启动批量审核"
           action={
             <button
               onClick={() => setShowModal(true)}

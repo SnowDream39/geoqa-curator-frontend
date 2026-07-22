@@ -5,6 +5,7 @@ import {
 } from "../api/client.ts";
 import { ConfigPanel } from "../components/ConfigPanel.tsx";
 import { ScoreBar } from "../components/ScoreBar.tsx";
+import { loadSceneSettings, saveSceneSettings } from "../lib/storage.ts";
 import type {
   QAItemPayload,
   ReviewConfigPayload,
@@ -39,8 +40,9 @@ export function Review() {
 
   // Config
   const [config, setConfig] = useState<ReviewConfigPayload>({});
-  const [settingsOverride, setSettingsOverride] =
-    useState<SettingsOverride>({});
+  const [settingsOverride, setSettingsOverride] = useState<SettingsOverride>(
+    () => loadSceneSettings<SettingsOverride>("review", {})
+  );
   const [activeTab, setActiveTab] = useState<TabId>("form");
 
   // Result
@@ -230,7 +232,10 @@ export function Review() {
                 config={config}
                 settingsOverride={settingsOverride}
                 onConfigChange={setConfig}
-                onSettingsChange={setSettingsOverride}
+                onSettingsChange={(next) => {
+                  setSettingsOverride(next);
+                  saveSceneSettings("review", next);
+                }}
               />
             </div>
           )}
