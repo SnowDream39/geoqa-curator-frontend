@@ -15,6 +15,7 @@ interface DeepReviewPersisted {
   riskScoreMin: number;
   limit: number | "";
   qaConcurrency: number;
+  runId: string;
 }
 
 function formatDate(iso?: string | null) {
@@ -48,10 +49,12 @@ export function DeepReview() {
     riskScoreMin: 70,
     limit: "",
     qaConcurrency: 4,
+    runId: "",
   });
   const [riskScoreMin, setRiskScoreMin] = useState(persisted.riskScoreMin);
   const [limit, setLimit] = useState<number | "">(persisted.limit);
   const [qaConcurrency, setQaConcurrency] = useState(persisted.qaConcurrency);
+  const [runId, setRunId] = useState(persisted.runId);
   const [settingsOverride, setSettingsOverride] = useState<SettingsOverride>(
     persisted.settingsOverride
   );
@@ -64,6 +67,7 @@ export function DeepReview() {
       riskScoreMin,
       limit,
       qaConcurrency,
+      runId,
     });
   }, [settingsOverride, riskScoreMin, limit, qaConcurrency]);
   const [submitting, setSubmitting] = useState(false);
@@ -97,7 +101,7 @@ export function DeepReview() {
     setSubmitting(true);
     try {
       const resp = await startDeepReview({
-        run_id: null,
+        run_id: runId.trim() || null,
         source_run_id: selectedSource,
         risk_score_min: riskScoreMin,
         limit: limit ? Number(limit) : null,
@@ -161,7 +165,11 @@ export function DeepReview() {
               return (
                 <button
                   key={run.run_id}
-                  onClick={() => setSelectedSource(run.run_id)}
+                  onClick={() => {
+                    setSelectedSource(run.run_id);
+                    // 默认让 deep review 沿用所选 review 批次的名字，方便对应。
+                    setRunId(run.run_id);
+                  }}
                   className={`rounded-xl border p-4 text-left transition-all ${
                     selected
                       ? "border-primary bg-primary/5 ring-1 ring-primary dark:bg-primary/10"
@@ -223,6 +231,18 @@ export function DeepReview() {
               onChange={(e) =>
                 setLimit(e.target.value === "" ? "" : Number(e.target.value))
               }
+              className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-primary dark:border-zinc-600"
+            />
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-xs font-medium text-zinc-500">
+              任务名称 (run_id，默认沿用来源批次名)
+            </span>
+            <input
+              type="text"
+              placeholder="选择来源后自动填入，可修改"
+              value={runId}
+              onChange={(e) => setRunId(e.target.value)}
               className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-primary dark:border-zinc-600"
             />
           </label>
