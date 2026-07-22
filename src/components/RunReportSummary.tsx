@@ -23,7 +23,10 @@ const DECISION_LABELS: Record<string, string> = {
 function fmt(v: unknown): string {
   if (v === null || v === undefined || v === "") return "—";
   if (typeof v === "boolean") return v ? "是" : "否";
-  if (typeof v === "number") return Number.isInteger(v) ? String(v) : v.toFixed(2);
+  if (typeof v === "number") {
+    if (Number.isInteger(v)) return v.toLocaleString("en-US");
+    return v.toFixed(2);
+  }
   return String(v);
 }
 
