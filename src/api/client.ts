@@ -9,6 +9,7 @@ import type {
   ReviewSingleResponse,
   RunListResponse,
   RunProgress,
+  RunReportSummary,
   SettingsInfo,
   StartBatchRequest,
 } from "../types/api.ts";
@@ -106,6 +107,16 @@ export async function downloadRunReport(
 ): Promise<Blob> {
   const { data } = await apiLong.get(`/runs/${runId}/report`);
   return data as Blob;
+}
+
+/** GET /api/runs/{run_id}/report-summary – structured payload for the simple web report */
+export async function getRunReportSummary(
+  runId: string,
+): Promise<RunReportSummary> {
+  const { data } = await api.get<RunReportSummary>(
+    `/runs/${runId}/report-summary`,
+  );
+  return data;
 }
 
 // ---------------------------------------------------------------------------

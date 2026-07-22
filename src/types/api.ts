@@ -254,6 +254,48 @@ export interface RunListResponse {
   count: number;
 }
 
+// ----- Run report summary (simple web report) -----------------------------
+
+export interface ReportKeyValue {
+  key: string;
+  value: unknown;
+}
+
+export interface RunReportSummary {
+  run_id: string;
+  status: string;
+  command?: string | null;
+  dry_run: boolean;
+  started_at?: string | null;
+  finished_at?: string | null;
+  stopped_due_to_api_failures: boolean;
+  api_failure_streak_max: number;
+  error?: string | null;
+  qa_counts: {
+    total: number;
+    submitted: number;
+    processed: number;
+    failed: number;
+    skipped: number;
+    dry_run: boolean;
+  };
+  token_usage: ReportKeyValue[];
+  writer_counts: ReportKeyValue[];
+  distributions: {
+    decision_counts?: Record<string, number> | null;
+    status_counts?: Record<string, number> | null;
+    error_type_counts?: Record<string, number> | null;
+    score_distributions?: Record<string, Record<string, number>> | null;
+  };
+  export_summary: ReportKeyValue[];
+  artifacts: {
+    review_results?: string | null;
+    improved_qa?: string | null;
+    report?: string | null;
+    expert_review_tasks?: string | null;
+  };
+}
+
 // ----- Deep Review -----------------------------------------------------------
 
 export interface DeepReviewRequest {

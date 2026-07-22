@@ -51,7 +51,6 @@ export function DeepReview() {
   });
   const [riskScoreMin, setRiskScoreMin] = useState(persisted.riskScoreMin);
   const [limit, setLimit] = useState<number | "">(persisted.limit);
-  const [runId, setRunId] = useState(persisted.runId);
   const [qaConcurrency, setQaConcurrency] = useState(persisted.qaConcurrency);
   const [settingsOverride, setSettingsOverride] = useState<SettingsOverride>(
     persisted.settingsOverride
@@ -98,7 +97,7 @@ export function DeepReview() {
     setSubmitting(true);
     try {
       const resp = await startDeepReview({
-        run_id: runId || null,
+        run_id: null,
         source_run_id: selectedSource,
         risk_score_min: riskScoreMin,
         limit: limit ? Number(limit) : null,

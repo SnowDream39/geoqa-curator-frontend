@@ -9,6 +9,7 @@ import {
 } from "../api/client.ts";
 import { usePolling } from "../hooks/usePolling.ts";
 import { StatusBadge } from "../components/StatusBadge.tsx";
+import { RunReportSummary } from "../components/RunReportSummary.tsx";
 import type { RunStat } from "../types/api.ts";
 
 // ---------------------------------------------------------------------------
@@ -235,6 +236,9 @@ export function RunDetail() {
           </div>
         </div>
       )}
+
+      {/* Simple web report (rendered directly in the page) */}
+      {runId && <RunReportSummary runId={runId} />}
 
       {/* Poll error */}
       {pollError && (
